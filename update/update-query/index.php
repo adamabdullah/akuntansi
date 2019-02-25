@@ -9,11 +9,13 @@ $nomor_transaksi				= $_POST['no_biaya'];
 $penerima				= $_POST['penerima'];
 $cara_pembayaran		= $_POST['cara_pembayaran'];
 $memo					= $_POST['memo'];
+
 $uang_per_akun_lama		= $_POST['uang_per_akun_lama'];
 $uang_pajak_perakun_lama= $_POST['uang_pajak_perakun_lama'];
 $nama_pajak_lama		= $_POST['nama_pajak_lama'];
 // $deskripsi_lama			= $_POST['deskripsi_lama'];
 $akun_lama   			= $_POST['akun_lama'];
+
 $kode_rahasia 			= $_POST['kode_rahasia'];
 $nama_pajak_total		= $_POST['nama_pajak_total'];
 $uang_pajak_total		= $_POST['uang_pajak_total'];
@@ -26,11 +28,11 @@ $sql = "UPDATE `transaksi_produk` SET `pelanggan`='".$penerima."', `tgl_transaks
 // mysqli_query($connect, $sql);
 
 $hasil = array(); //-----------------------------pertama jadikan object json dulu
-foreach ($nama_pajak_total as $id => $key) 
+foreach ($nama_pajak_lama as $id => $key) 
 {
     $hasil[$id] = array(
-        'nama'  => $nama_pajak_total[$id],
-        'uang' => $uang_pajak_total[$id],
+        'nama'  => $nama_pajak_lama[$id],
+        'uang' => $uang_pajak_perakun_lama[$id],
     );
 }
 
@@ -95,7 +97,7 @@ function nama_pajak_lama($bankname, $array) {
 $nama_pajak3 = array_column($amount2, 'nama'); //nama_pajak_patokan
 $uang_pajak3 = array_column($amount2, 'uang'); //nama_pajak_patokan
 
-$uang_pajak2 = array_column($amount, 'uang'); //nama_pajak_total
+$uang_pajak2 = array_column($amount, 'uang'); //nama_pajak_lama
 $nama_pajak2 = array_column($amount, 'nama');
 
 
@@ -193,8 +195,8 @@ if($jumlah != 0)
 	}
 	foreach ($akun_lama as $key => $value)  //akun
 	{
-		echo $akun_lama[$key]." <= akun lama \n";
-		echo $akun_patokan[$key]." <= akun patokan \n \n";
+		$akun_lama[$key]." <= akun lama \n";
+		$akun_patokan[$key]." <= akun patokan \n \n";
 		$arr = explode("|", $nama_pajak_lama[$key], 2);
 	    $nama_pajak_saja = $arr[0];
 	    $pajak_masukkan = "SELECT akun_pajak_pembelian from pajak where nama_pajak='".$nama_pajak_saja."'";
@@ -321,7 +323,7 @@ if(isset($_POST['uang_per_akun_baru']))
 	$uang_per_akun_baru		= $_POST['uang_per_akun_baru'];
 	$uang_pajak_perakun_baru= $_POST['uang_pajak_perakun_baru'];
 	$nama_pajak_baru		= $_POST['nama_pajak_baru'];
-	$deskripsi_baru			= $_POST['deskripsi_baru'];
+	// $deskripsi_baru			= $_POST['deskripsi_baru'];
 	$akun_baru 				= $_POST['akun_baru'];
 	foreach ($nama_pajak_baru as $key => $value) 
     {
@@ -331,9 +333,89 @@ if(isset($_POST['uang_per_akun_baru']))
         $hasil_query = mysqli_query($connect,$pajak_masukkan);
         $data_pajak = mysqli_fetch_array($hasil_query);
 
-        $sql_kirim_update = "INSERT INTO `transaksi`(`kode_transaksi`, `kode_akun`, `kolom`, `debit`, `no`, `nama_pajak`, `harga_pajak`, `nama_pajak_ori`) VALUES ('".$nomor_transaksi."', '".$akun_baru."', 'biaya', '".$uang_per_akun_baru[$key]."','".$noUrut."', '".$data_pajak['akun_pajak_pembelian']."', '".$uang_pajak_baru[$key]."',  '".$nama_pajak_baru[$key]."')";
-        // mysqli_query($connect, $sql_kirim_update);
-    } 
+        $sql_kirim_update = "INSERT INTO `transaksi`(`kode_transaksi`, `kode_akun`, `kolom`, `debit`, `no`, `nama_pajak`, `harga_pajak`, `nama_pajak_ori`) VALUES ('".$nomor_transaksi."', '".$akun_baru[$key]."', 'biaya', '".$uang_per_akun_baru[$key]."','".$noUrut."', '".$data_pajak['akun_pajak_pembelian']."', '".$uang_pajak_perakun_baru[$key]."',  '".$nama_pajak_baru[$key]."')";
+        mysqli_query($connect, $sql_kirim_update);
+        foreach ($nama_pajak2 as $key2 => $value) 
+        {
+        	if ($nama_pajak2[$key2] == $nama_pajak_baru[$key]) 
+        	{
+        		$wadah_nama_pajak_lawas = $nama_pajak2[$key2];
+                $wadah_uang_pajak_lawas = $uang_pajak2[$key2];
+
+                $arr = explode("|", $wadah_nama_pajak_lawas, 2);
+                $nama_pajak_saja = $arr[0];
+                $pajak_masukkan = "SELECT akun_pajak_pembelian from pajak where nama_pajak='".$nama_pajak_saja."'";
+                $hasil_query = mysqli_query($connect,$pajak_masukkan);
+                $data_pajak = mysqli_fetch_array($hasil_query);
+                $hasil = $wadah_uang_pajak_lawas+$uang_pajak_perakun_baru[$key];
+
+                $sql_pajak = "UPDATE `transaksi` SET `debit`= '".$hasil."' where `kode_transaksi`= '".$nomor_transaksi."' and `kode_akun`='".$data_pajak['akun_pajak_pembelian']."' and `nama_pajak_ori`='".$wadah_nama_pajak_lawas."'";
+                mysqli_query($connect, $sql_pajak);
+        	}
+        }
+    }
+
+    $hasil3 = array(); //-----------------------------ini digunakan untuk mencari tahu mana pajak yang baru kemudian insert pajak baru ke kode akun
+    foreach ($nama_pajak_baru as $id => $key) {
+
+        $hasil3[$id] = array(
+            'nama'  => $nama_pajak_baru[$id],
+            'uang' => $uang_pajak_perakun_baru[$id],
+        );
+    }
+
+    $amount3 = array(); //---------------------------------setelah itu cari mana yg sama
+    foreach($hasil3 as $bank) {  
+        $index = bank_exists($bank['nama'], $amount3);
+        if ($index < 0) 
+        {
+             $amount3[] = $bank;
+        }
+        else 
+        {
+            $amount3[$index]['uang']+=$bank['uang'];    
+        }
+    }
+
+
+    $wadah_nama_pajak_baru = array_column($amount3, 'nama');
+    $wadah_uang_pajak_baru = array_column($amount3, 'uang');
+
+    $hasil_wadah = array_diff($wadah_nama_pajak_baru, $nama_pajak3); 
+
+    $hasil_semuanya = array_values($hasil_wadah);
+
+    $hitung_wadah = count($hasil_semuanya);
+
+    if ($hitung_wadah > 0) 
+    {
+        foreach ($nama_pajak_baru as $key2 => $value) 
+        {
+            foreach ($hasil_semuanya as $key => $value) 
+            {
+            	//insert pajak yang tidak ada di patokan
+                if ($hasil_semuanya[$key] == $nama_pajak_baru[$key2]) 
+                {
+                    $baru_lagi_nama_pajak = $nama_pajak_baru[$key2];
+                    $baru_lagi_uang_pajak = $uang_pajak_perakun_baru[$key2];
+                    $baru_lagi_nama_akun = $akun_baru[$key2];
+                    $baru_lagi_uang_akun = $uang_per_akun_baru[$key2];
+
+                    $arr = explode("|", $baru_lagi_nama_pajak, 2);
+                    $nama_pajak_saja = $arr[0];
+                    $pajak_masukkan = "SELECT akun_pajak_pembelian from pajak where nama_pajak='".$nama_pajak_saja."'";
+                    $hasil_query = mysqli_query($connect,$pajak_masukkan);
+                    $data_pajak = mysqli_fetch_array($hasil_query);
+
+                    $sql_insert_pajak_baru2 = "INSERT INTO `transaksi`(`kode_transaksi`,`kode_akun`, `kolom`, `debit`, `no`, `nama_pajak_ori`) VALUES('".$nomor_transaksi."', '".$data_pajak['akun_pajak_pembelian']."', 'biaya', '".$baru_lagi_uang_pajak."', '".$noUrut."', '".$baru_lagi_nama_pajak."')";
+                    mysqli_query($connect,$sql_insert_pajak_baru2);
+                }
+                
+            }
+        }
+    }
+
+    //MENCARI NAMA PAJAK BARU APAKAH ADA YANG BERBEDA DENGAN PAJAK PATOKAN, JIKA IYA MAKA INSERT BARU 
 }
 
 
